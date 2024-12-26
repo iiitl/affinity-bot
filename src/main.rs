@@ -1,29 +1,36 @@
-use std::error::Error;
-use std::time::Duration;
-
 use anyhow::Context as _;
 use events::self_role_assign::self_role_assign;
+use moderation::spam::SpamChecker;
+use moderation::violations::{ModAction, ViolationThresholds, ViolationsTracker};
 use serenity::all::{
-    ChannelId, Command, CreateInteractionResponse, CreateInteractionResponseMessage, Interaction,
-    Member, MessageId, Reaction, ReactionType, User,
+    ChannelId, Command, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId,
+    Interaction, Member, Message, MessageId, Reaction, ReactionType, Ready, Timestamp, User,
 };
-use serenity::model::channel::Message;
-use serenity::model::gateway::Ready;
+use serenity::async_trait;
 use serenity::prelude::*;
-use serenity::{all::GuildId, async_trait};
 use shuttle_runtime::SecretStore;
+use std::error::Error;
+use tokio::time::Instant;
 use tracing::{error, info};
 mod commands;
 mod events;
-// Modify Bot struct to hold SecretStore
+mod moderation;
+use std::time::Duration;
 struct Bot {
     secrets: SecretStore,
+    spam_checker: SpamChecker,
+    violations_tracker: ViolationsTracker,
+    violation_threshold: ViolationThresholds,
 }
 
-// Add constructor for Bot
 impl Bot {
     pub fn new(secrets: SecretStore) -> Self {
-        Self { secrets }
+        Self {
+            secrets,
+            spam_checker: SpamChecker::new(),
+            violations_tracker: ViolationsTracker::new(),
+            violation_threshold: ViolationThresholds::default(),
+        }
     }
     async fn reaction_add_internal(
         &self,
@@ -60,11 +67,107 @@ impl Bot {
 
         Ok(())
     }
+    async fn punish_member(
+        &self,
+        ctx: &Context,
+        msg: &Message,
+        action: Option<ModAction>,
+    ) -> Result<(), Box<dyn Error>> {
+        match action {
+            Some(ModAction::Mute(duration)) => {
+                if let Some(guild_id) = msg.guild_id {
+                    if let Some(mut member) = guild_id.member(&ctx.http, msg.author.id).await.ok() {
+                        let until = Timestamp::from_unix_timestamp(
+                            (std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)?
+                                .as_secs() as i64)
+                                + duration.as_secs() as i64,
+                        )?;
+
+                        if let Err(e) = member
+                            .disable_communication_until_datetime(&ctx.http, until)
+                            .await
+                        {
+                            error!("Failed to timeout member: {:?}", e);
+                        }
+                        msg.channel_id
+                            .say(
+                                &ctx.http,
+                                format!(
+                                    "User {} has been muted for {} violations",
+                                    msg.author.mention(),
+                                    self.violations_tracker
+                                        .get_violation_count(msg.author.id)
+                                        .unwrap()
+                                ),
+                            )
+                            .await?;
+                    }
+                }
+            }
+            Some(ModAction::Ban) => {
+                msg.guild_id
+                    .ok_or("Not in guild")?
+                    .ban_with_reason(
+                        &ctx.http,
+                        msg.author.id,
+                        7, // Delete messages from last 7 days
+                        "Exceeded violation limit",
+                    )
+                    .await?;
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!(
+                            "User {} has been banned for excessive violations",
+                            msg.author.name
+                        ),
+                    )
+                    .await?;
+            }
+            Some(ModAction::None) => {
+                let warning_message:String = format!("You're sending messages too quickly {}. Please slow down to avoid being timed out.",msg.author.id.mention());
+
+                msg.channel_id.say(&ctx.http, warning_message).await?;
+            }
+            None => {
+                msg.channel_id
+                    .say(&ctx.http, "Error checking violations")
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl EventHandler for Bot {
     async fn message(&self, ctx: Context, msg: Message) {
+        // Ignore bot messages
+        if msg.author.bot {
+            return;
+        }
+        // Check for spam
+        if self.spam_checker.is_spam(msg.author.id).await {
+            // Delete spam message
+            println!("{} is spamming ", msg.author.id);
+            if let Err(e) = msg.delete(&ctx.http).await {
+                error!("Failed to delete spam message: {:?}", e);
+            }
+
+            // Unused Result (Scope of Improvement)
+            let _ = self.violations_tracker.increment_violations(msg.author.id);
+            let action = self
+                .violations_tracker
+                .get_appropriate_action(msg.author.id, &self.violation_threshold);
+
+            // Unused Result (Scope of Improvement)
+            let _ = self.punish_member(&ctx, &msg, action).await;
+
+            return;
+        }
+
         if msg.content == "!hello" {
             if let Err(e) = msg.channel_id.say(&ctx.http, "world!").await {
                 error!("Error sending message: {:?}", e);
@@ -94,8 +197,7 @@ impl EventHandler for Bot {
             error!("Error handling new_members: {:?}", e);
         }
     }
-    async fn guild_member_removal(&self,ctx:Context,_: GuildId, user: User, _: Option<Member>)
-    {
+    async fn guild_member_removal(&self, ctx: Context, _: GuildId, user: User, _: Option<Member>) {
         let welcome_channel_id = match self
             .secrets
             .get("WELCOME_CHANNEL_ID")
@@ -113,7 +215,6 @@ impl EventHandler for Bot {
         if let Err(e) = welcome_channel_id.say(&ctx.http, goodbye_message).await {
             error!("Error sending welcome message: {:?}", e);
         }
-
     }
 
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
@@ -175,6 +276,19 @@ impl EventHandler for Bot {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
+
+        // cleanUp of spamHashMap entries
+        let tracker = self.spam_checker.get_tracker();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(30)).await;
+                let mut guard = tracker.lock().await;
+                let now = Instant::now();
+                guard.retain(|_, data| {
+                    now.duration_since(data.first_message) <= Duration::from_secs(30)
+                });
+            }
+        });
 
         // Now we can access secrets through self.secrets
         let guild_id = GuildId::new(

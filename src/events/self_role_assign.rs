@@ -12,7 +12,6 @@ pub async fn self_role_assign(
         ReactionType::Unicode(ref emoji) => emoji.to_string(),
         _ => return Ok(()), // Return early for non-Unicode emojis
     };
-
     println!("received emoji is {}", emoji_name);
 
     // Get role ID from secrets
