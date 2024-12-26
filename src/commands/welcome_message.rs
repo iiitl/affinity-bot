@@ -2,7 +2,6 @@ use serenity::all::Permissions;
 use serenity::builder::CreateCommand;
 use serenity::model::application::ResolvedOption;
 
-
 pub fn run(_options: &[ResolvedOption]) -> String {
     let message = "**Welcome to the Community! 👋**
 The open source AI powered social hub. Reach out to me (in this server, not via direct message) 
@@ -23,7 +22,7 @@ if you have any questions about the project, this community, or anything else!\n
     🧠 AI/ML Dev/Researcher\n\
     🫖 UX Designer\n\n\
     *Click a reaction once to get the role. Click again to remove it.*";
-    
+
     message.to_string()
 }
 
