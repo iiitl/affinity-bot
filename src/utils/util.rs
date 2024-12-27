@@ -5,7 +5,7 @@ use serenity::all::{
 
 pub enum Response {
     Text(String),
-    Embed(CreateEmbed),
+    Embed(Box<CreateEmbed>),
 }
 impl From<String> for Response {
     fn from(content: String) -> Self {
@@ -15,7 +15,7 @@ impl From<String> for Response {
 
 impl From<CreateEmbed> for Response {
     fn from(embed: CreateEmbed) -> Self {
-        Response::Embed(embed)
+        Response::Embed(Box::new(embed))
     }
 }
 
@@ -27,7 +27,7 @@ pub async fn create_response(
     let response = response.into();
     let builder = CreateInteractionResponse::Message(match response {
         Response::Text(content) => CreateInteractionResponseMessage::new().content(content),
-        Response::Embed(embed) => CreateInteractionResponseMessage::new().embed(embed),
+        Response::Embed(embed) => CreateInteractionResponseMessage::new().embed(*embed),
     });
 
     if let Err(why) = command.create_response(&ctx.http, builder).await {
