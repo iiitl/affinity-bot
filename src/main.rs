@@ -15,6 +15,7 @@ use tracing::{error, info};
 mod commands;
 mod events;
 mod moderation;
+mod utils;
 use std::time::Duration;
 struct Bot {
     secrets: SecretStore,
@@ -76,7 +77,7 @@ impl Bot {
         match action {
             Some(ModAction::Mute(duration)) => {
                 if let Some(guild_id) = msg.guild_id {
-                    if let Some(mut member) = guild_id.member(&ctx.http, msg.author.id).await.ok() {
+                    if let Ok(mut member) = guild_id.member(&ctx.http, msg.author.id).await {
                         let until = Timestamp::from_unix_timestamp(
                             (std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)?
@@ -225,11 +226,25 @@ impl EventHandler for Bot {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
-            println!("Received command interaction: {command:#?}");
+            // println!("Received command interaction: {command:#?}");
 
-            let content = match command.data.name.as_str() {
-                "ping" => Some(commands::ping::run(&command.data.options())),
-                "id" => Some(commands::id::run(&command.data.options())),
+            match command.data.name.as_str() {
+                "ping" => {
+                    utils::util::create_response(
+                        &ctx,
+                        &command,
+                        commands::ping::run(&command.data.options()),
+                    )
+                    .await
+                }
+                "id" => {
+                    utils::util::create_response(
+                        &ctx,
+                        &command,
+                        commands::id::run(&command.data.options()),
+                    )
+                    .await
+                }
                 "welcome" => {
                     // Handle the welcome command
                     let message = commands::welcome_message::run(&command.data.options());
@@ -259,18 +274,36 @@ impl EventHandler for Bot {
                             }
                         }
                     }
-                    None
                 }
-                _ => Some("not implemented :(".to_string()),
+                "warn" => {
+                    utils::util::create_response(
+                        &ctx,
+                        &command,
+                        commands::moderate::warn(&command.data.options()),
+                    )
+                    .await
+                }
+                "mute" => {
+                    utils::util::create_response(
+                        &ctx,
+                        &command,
+                        commands::moderate::mute(&command.data.options(), &ctx, &command).await,
+                    )
+                    .await
+                }
+                "ban" => {
+                    utils::util::create_response(
+                        &ctx,
+                        &command,
+                        commands::moderate::ban(&command.data.options(), &ctx, &command).await,
+                    )
+                    .await
+                }
+                _ => {
+                    utils::util::create_response(&ctx, &command, "not implemented :(".to_string())
+                        .await
+                }
             };
-
-            if let Some(content) = content {
-                let data = CreateInteractionResponseMessage::new().content(content);
-                let builder = CreateInteractionResponse::Message(data);
-                if let Err(why) = command.create_response(&ctx.http, builder).await {
-                    println!("Cannot respond to slash command: {why}");
-                }
-            }
         }
     }
 
@@ -307,10 +340,13 @@ impl EventHandler for Bot {
                     commands::ping::register(),
                     commands::id::register(),
                     commands::welcome_message::register(),
+                    commands::moderate::register_warn(),
+                    commands::moderate::register_mute(),
+                    commands::moderate::register_ban(),
                 ],
             )
             .await;
-
+        // println!("I now have the following guild slash commands: {commands:#?}");
         let _ = Command::create_global_command(&ctx.http, commands::wonderful_command::register())
             .await;
     }
