@@ -2,6 +2,7 @@ use anyhow::Context as _;
 use events::self_role_assign::self_role_assign;
 use moderation::spam::SpamChecker;
 use moderation::violations::{ModAction, ViolationThresholds, ViolationsTracker};
+use sea_orm::Database;
 use serenity::all::{
     ChannelId, Command, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId,
     Interaction, Member, Message, MessageId, Reaction, ReactionType, Ready, Timestamp, User,
@@ -364,6 +365,10 @@ async fn serenity(
         | GatewayIntents::MESSAGE_CONTENT
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_MESSAGE_REACTIONS;
+
+    let db = Database::connect(secrets.get("DATABASE_URL").unwrap())
+        .await
+        .expect("could not connect");
 
     // Pass secrets to Bot constructor
     let client = Client::builder(&token, intents)
