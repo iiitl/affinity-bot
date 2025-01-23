@@ -21,7 +21,7 @@ impl MigrationTrait for Migration {
                             .from(PriceHistory::Table, PriceHistory::ProductId)
                             .to(Products::Table, Products::ProductId)
                             .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

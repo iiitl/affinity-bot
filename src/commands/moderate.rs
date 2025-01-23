@@ -93,7 +93,7 @@ pub async fn mute(
             .color(Color::RED)
             .footer(CreateEmbedFooter::new("Muted by Moderation System"))
     } else {
-         CreateEmbed::default()
+        CreateEmbed::default()
             .title("Error")
             .description("User is not a member of this server")
             .color(Color::RED)
@@ -149,7 +149,7 @@ pub async fn ban(
             .color(Color::RED)
             .footer(CreateEmbedFooter::new("banned by Moderation System"))
     } else {
-         CreateEmbed::default()
+        CreateEmbed::default()
             .title("Error")
             .description("User is not a member of this server")
             .color(Color::RED)

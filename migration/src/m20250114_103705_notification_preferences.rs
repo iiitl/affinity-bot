@@ -16,18 +16,29 @@ impl MigrationTrait for Migration {
                     .col(string(NotificationPreferences::Email).not_null())
                     .col(integer(NotificationPreferences::TimeIntervalHours).not_null())
                     .col(decimal(NotificationPreferences::PriceThreshold).not_null())
-                    .col(boolean(NotificationPreferences::NotifyOnLowest).not_null().default(false))
-                    .col(boolean(NotificationPreferences::NotifyOnHighest).not_null().default(false))
+                    .col(
+                        boolean(NotificationPreferences::NotifyOnLowest)
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        boolean(NotificationPreferences::NotifyOnHighest)
+                            .not_null()
+                            .default(false),
+                    )
                     .col(timestamp(NotificationPreferences::LastNotified).not_null())
                     .col(timestamp(NotificationPreferences::CreatedAt).not_null())
                     .col(timestamp(NotificationPreferences::UpdatedAt).not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-notification_preferences-product_id")
-                            .from(NotificationPreferences::Table, NotificationPreferences::ProductId)
+                            .from(
+                                NotificationPreferences::Table,
+                                NotificationPreferences::ProductId,
+                            )
                             .to(Products::Table, Products::ProductId)
                             .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -36,7 +47,11 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(NotificationPreferences::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(NotificationPreferences::Table)
+                    .to_owned(),
+            )
             .await
     }
 }
