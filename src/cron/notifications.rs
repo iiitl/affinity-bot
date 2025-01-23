@@ -30,7 +30,7 @@ impl From<notification_preferences::Model> for MyntraNotification {
     }
 }
 
-// Scope for improvement. Dead Code warning here , need to remove this 
+// Scope for improvement. Dead Code warning here , need to remove this
 pub struct MyntraNotification {
     preference_id: i32,
     product_id: i32,
@@ -160,7 +160,7 @@ impl NotificationManager {
     }
 
     pub async fn start(self) {
-        let mut interval = interval(Duration::from_secs(60));
+        let mut interval = interval(Duration::from_secs(3600));
 
         tokio::spawn(async move {
             loop {

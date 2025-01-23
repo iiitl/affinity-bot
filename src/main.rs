@@ -4,6 +4,7 @@ use cron::notifications::{self, NotificationManager};
 use events::self_role_assign::self_role_assign;
 use moderation::spam::SpamChecker;
 use moderation::violations::{ModAction, ViolationThresholds, ViolationsTracker};
+use scraper::price_scraper::PriceScraper;
 use sea_orm::{Database, DatabaseConnection};
 use serenity::all::{
     ChannelId, Command, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId,
@@ -390,6 +391,9 @@ async fn serenity(
         .expect("could not connect");
 
     EmailConfig::init(&secrets).expect("Could not initialize email config");
+
+    let scraper = PriceScraper::new(db.clone());
+    scraper.start_scraping().await;
 
     let mut manager = NotificationManager::new(db.clone());
     manager.register_handler(notifications::MyntraHandler);
