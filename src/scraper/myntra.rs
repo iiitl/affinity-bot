@@ -77,11 +77,6 @@ pub async fn scrape_product(url: &str) -> Result<f32, Box<dyn std::error::Error>
         true,
     )?;
 
-    // Add final random delay
-    // thread::sleep(Duration::from_millis(
-    //     rand::thread_rng().gen_range(1000..3000),
-    // ));
-
     let page_content = tab.get_content()?;
 
     let document = Html::parse_document(&page_content);
@@ -106,8 +101,6 @@ pub async fn scrape_product(url: &str) -> Result<f32, Box<dyn std::error::Error>
             )
         })
         .unwrap_or(0.0);
-
-    println!("Price lauda lassun is : {:?}", price);
 
     Ok(price)
 }

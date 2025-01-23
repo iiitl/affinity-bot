@@ -1,4 +1,6 @@
 use anyhow::Context as _;
+use config::email::EmailConfig;
+use cron::notifications::{self, NotificationManager};
 use events::self_role_assign::self_role_assign;
 use moderation::spam::SpamChecker;
 use moderation::violations::{ModAction, ViolationThresholds, ViolationsTracker};
@@ -14,6 +16,8 @@ use std::error::Error;
 use tokio::time::Instant;
 use tracing::{error, info};
 mod commands;
+mod config;
+mod cron;
 mod events;
 mod moderation;
 mod scraper;
@@ -384,6 +388,12 @@ async fn serenity(
     let db = Database::connect(secrets.get("DATABASE_URL").unwrap())
         .await
         .expect("could not connect");
+
+    EmailConfig::init(&secrets).expect("Could not initialize email config");
+
+    let mut manager = NotificationManager::new(db.clone());
+    manager.register_handler(notifications::MyntraHandler);
+    manager.start().await;
 
     // Pass secrets to Bot constructor
     let client = Client::builder(&token, intents)
