@@ -2,7 +2,7 @@ use anyhow::Context as _;
 use events::self_role_assign::self_role_assign;
 use moderation::spam::SpamChecker;
 use moderation::violations::{ModAction, ViolationThresholds, ViolationsTracker};
-use sea_orm::Database;
+use sea_orm::{Database, DatabaseConnection};
 use serenity::all::{
     ChannelId, Command, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId,
     Interaction, Member, Message, MessageId, Reaction, ReactionType, Ready, Timestamp, User,
@@ -16,6 +16,7 @@ use tracing::{error, info};
 mod commands;
 mod events;
 mod moderation;
+mod scraper;
 mod utils;
 use std::time::Duration;
 struct Bot {
@@ -23,15 +24,17 @@ struct Bot {
     spam_checker: SpamChecker,
     violations_tracker: ViolationsTracker,
     violation_threshold: ViolationThresholds,
+    db: DatabaseConnection,
 }
 
 impl Bot {
-    pub fn new(secrets: SecretStore) -> Self {
+    pub fn new(secrets: SecretStore, db: DatabaseConnection) -> Self {
         Self {
             secrets,
             spam_checker: SpamChecker::new(),
             violations_tracker: ViolationsTracker::new(),
             violation_threshold: ViolationThresholds::default(),
+            db,
         }
     }
     async fn reaction_add_internal(
@@ -300,6 +303,17 @@ impl EventHandler for Bot {
                     )
                     .await
                 }
+                "myntra" => {
+                    let response =
+                        commands::scrape::myntra::myntra_add(&command.data.options(), &self.db)
+                            .await
+                            .unwrap();
+                    let message = CreateInteractionResponseMessage::new().content(response);
+                    let builder = CreateInteractionResponse::Message(message);
+                    if let Err(why) = command.create_response(&ctx.http, builder).await {
+                        error!("Cannot respond to myntra_add command: {why}");
+                    }
+                }
                 _ => {
                     utils::util::create_response(&ctx, &command, "not implemented :(".to_string())
                         .await
@@ -334,10 +348,11 @@ impl EventHandler for Bot {
                 .expect("Failed to parse GUILD_TOKEN"),
         );
 
-        let _ = guild_id
+        let _commands = guild_id
             .set_commands(
                 &ctx.http,
                 vec![
+                    commands::scrape::myntra::register_add(),
                     commands::ping::register(),
                     commands::id::register(),
                     commands::welcome_message::register(),
@@ -372,7 +387,7 @@ async fn serenity(
 
     // Pass secrets to Bot constructor
     let client = Client::builder(&token, intents)
-        .event_handler(Bot::new(secrets))
+        .event_handler(Bot::new(secrets, db))
         .await
         .expect("Err creating client");
 
