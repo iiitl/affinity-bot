@@ -1,4 +1,4 @@
-use crate::scraper::myntra::scrape_product;
+use crate::scraper::myntra::scrape_products;
 use anyhow::Context;
 use entity::{notification_preferences, products};
 use sea_orm::ColumnTrait;
@@ -58,7 +58,8 @@ pub async fn myntra_add(
     tokio::spawn(async move {
         let result: Result<_, Box<dyn std::error::Error>> =
             async {
-                let product_price = scrape_product(product_id.to_string().as_str()).await?;
+                //Scope for improvement
+                let product_price = scrape_products(vec![product_id]).await?.first().unwrap().to_owned();
                 let txn = db.begin().await.context("Failed to start transaction")?;
 
                 let existing_product = products::Entity::find()

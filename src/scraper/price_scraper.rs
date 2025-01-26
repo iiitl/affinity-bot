@@ -4,7 +4,7 @@ use prelude::Decimal;
 use sea_orm::*;
 use std::sync::Arc;
 
-use super::myntra::scrape_product;
+use super::myntra::scrape_products;
 
 pub struct PriceScraper {
     db: Arc<DatabaseConnection>,
@@ -23,14 +23,19 @@ impl PriceScraper {
         tokio::spawn(async move {
             loop {
                 if let Ok(preferences) = notification_preferences::Entity::find().all(&*db).await {
-                    for pref in preferences {
-                        match scrape_product(pref.product_id.to_string().as_str()).await.map_err(|e| e.to_string()) {
-                            Ok(price) => {
+                    let product_ids: Vec<i32> = preferences
+                        .iter()
+                        .map(|pref| pref.product_id)
+                        .collect();
+                
+                    match scrape_products(product_ids).await.map_err(|e| e.to_string()) {
+                        Ok(prices) => {
+                            for (pref, price) in preferences.iter().zip(prices) {
                                 let decimal_price = Decimal::new(price as i64, 2);
-                                update_prices(&*db, pref.product_id, decimal_price).await;
+                                update_prices(&db, pref.product_id, decimal_price).await;
                             }
-                            Err(e) => eprintln!("Scraping error: {}", e),
                         }
+                        Err(e) => eprintln!("Scraping error: {}", e),
                     }
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
