@@ -105,7 +105,7 @@ impl NotificationPreference for MyntraNotification {
 
     async fn update_last_notified(&self, db: &DatabaseConnection) -> Result<(), DbErr> {
         notification_preferences::Entity::update_many()
-            .filter(notification_preferences::Column::PreferenceId.eq(self.product_id))
+            .filter(notification_preferences::Column::ProductId.eq(self.product_id))
             .set(notification_preferences::ActiveModel {
                 last_notified: Set(Utc::now().naive_utc()),
                 ..Default::default()
