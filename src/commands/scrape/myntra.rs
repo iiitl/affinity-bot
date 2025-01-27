@@ -56,60 +56,69 @@ pub async fn myntra_add(
     let db = db.clone();
 
     tokio::spawn(async move {
-        let result: Result<_, Box<dyn std::error::Error>> =
-            async {
-                //Scope for improvement
-                let product_price = scrape_products(vec![product_id]).await?.first().unwrap().to_owned();
-                let txn = db.begin().await.context("Failed to start transaction")?;
+        let result: Result<_, Box<dyn std::error::Error>> = async {
+            let product_price = scrape_products(vec![product_id])
+                .await?
+                .first()
+                .unwrap()
+                .to_owned();
+            let txn = db.begin().await.context("Failed to start transaction")?;
 
-                let existing_product = products::Entity::find()
-                    .filter(products::Column::ProductId.eq(product_id))
-                    .one(&txn)
-                    .await
-                    .context("Failed to check existing product")?;
+            // First try to insert the product if it doesn't exist
+            let product_model = products::ActiveModel {
+                product_id: Set(product_id),
+                current_price: Set(
+                    Decimal::try_from(product_price).context("Invalid product price")?
+                ),
+                highest_price: Set(
+                    Decimal::try_from(product_price).context("Invalid product price")?
+                ),
+                lowest_price: Set(
+                    Decimal::try_from(product_price).context("Invalid product price")?
+                ),
+                last_updated: Set(Utc::now().naive_utc()),
+                ..Default::default()
+            };
 
-                if existing_product.is_none() {
-                    let products =
-                        products::ActiveModel {
-                            product_id: Set(product_id),
-                            current_price: Set(Decimal::try_from(product_price)
-                                .context("Invalid product price")?),
-                            highest_price: Set(Decimal::try_from(product_price)
-                                .context("Invalid product price")?),
-                            lowest_price: Set(Decimal::try_from(product_price)
-                                .context("Invalid product price")?),
-                            last_updated: Set(Utc::now().naive_utc()),
-                            ..Default::default()
-                        };
-
-                    products::Entity::insert(products)
-                        .exec(&txn)
-                        .await
-                        .context("Failed to insert product")?;
+            match products::Entity::insert(product_model).exec(&txn).await {
+                Ok(_) => (),
+                Err(e) => {
+                    if !e.to_string().contains("duplicate key") {
+                        return Err(e.into());
+                    }
                 }
-
-                let notification_preferences = notification_preferences::ActiveModel {
-                    product_id: Set(product_id),
-                    email: Set(email),
-                    time_interval_hours: Set(time_interval),
-                    price_threshold: Set(price_threshold),
-                    notify_on_lowest: Set(notify_on_lowest),
-                    notify_on_highest: Set(false),
-                    last_notified: Set(Utc::now().naive_utc()),
-                    created_at: Set(Utc::now().naive_utc()),
-                    updated_at: Set(Utc::now().naive_utc()),
-                    ..Default::default()
-                };
-
-                notification_preferences::Entity::insert(notification_preferences)
-                    .exec(&txn)
-                    .await
-                    .context("Failed to insert notification preferences")?;
-
-                txn.commit().await.context("Failed to commit transaction")?;
-                Ok(())
             }
-            .await;
+
+            let notification_preferences = notification_preferences::ActiveModel {
+                product_id: Set(product_id),
+                email: Set(email),
+                time_interval_hours: Set(time_interval),
+                price_threshold: Set(price_threshold),
+                notify_on_lowest: Set(notify_on_lowest),
+                notify_on_highest: Set(false),
+                last_notified: Set(Utc::now().naive_utc()),
+                created_at: Set(Utc::now().naive_utc()),
+                updated_at: Set(Utc::now().naive_utc()),
+                ..Default::default()
+            };
+
+            match notification_preferences::Entity::insert(notification_preferences)
+                .exec(&txn)
+                .await
+            {
+                Ok(_) => (),
+                Err(e) => {
+                    if e.to_string().contains("duplicate key") {
+                        return Ok(());
+                    }
+                    return Err(e.into());
+                }
+            }
+
+            txn.commit().await.context("Failed to commit transaction")?;
+            Ok(())
+        }
+        .await;
 
         if let Err(e) = result {
             error!("Error in background task: {}", e);

@@ -40,12 +40,58 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .index(
+                        Index::create()
+                            .name("idx_notification_preferences_product_email")
+                            .table(NotificationPreferences::Table)
+                            .col(NotificationPreferences::ProductId)
+                            .col(NotificationPreferences::Email)
+                            .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_notification_preferences_email")
+                    .table(NotificationPreferences::Table)
+                    .col(NotificationPreferences::Email)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_notification_preferences_last_notified")
+                    .table(NotificationPreferences::Table)
+                    .col(NotificationPreferences::LastNotified)
                     .to_owned(),
             )
             .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_index(
+                Index::drop()
+                    .name("idx_notification_preferences_email")
+                    .table(NotificationPreferences::Table)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .drop_index(
+                Index::drop()
+                    .name("idx_notification_preferences_last_notified")
+                    .table(NotificationPreferences::Table)
+                    .to_owned(),
+            )
+            .await?;
+
         manager
             .drop_table(
                 Table::drop()
