@@ -393,7 +393,7 @@ async fn serenity(
     EmailConfig::init(&secrets).expect("Could not initialize email config");
 
     let scraper = PriceScraper::new(db.clone());
-    scraper.start_scraping().await;
+    tokio::spawn(async move { scraper.start_scraping().await });
 
     let mut manager = NotificationManager::new(db.clone());
     manager.register_handler(notifications::MyntraHandler);

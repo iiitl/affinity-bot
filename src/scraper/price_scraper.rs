@@ -1,6 +1,6 @@
+use super::myntra::scrape_products;
 use ::entity::{notification_preferences, price_history, products};
 use prelude::Decimal;
-use super::myntra::scrape_products;
 use sea_orm::*;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -15,35 +15,30 @@ impl PriceScraper {
     }
 
     pub async fn start_scraping(&self) {
+        // Scope for Improvement: Do we need Arc here?
         let db = self.db.clone();
 
-        tokio::spawn(async move {
-            loop {
-                if let Ok(preferences) = notification_preferences::Entity::find().all(&*db).await {
-                    let product_ids: Vec<i32> =
-                        preferences.iter().map(|pref| pref.product_id).collect();
+        loop {
+            if let Ok(preferences) = notification_preferences::Entity::find().all(&*db).await {
+                let product_ids: Vec<i32> =
+                    preferences.iter().map(|pref| pref.product_id).collect();
 
-                    match scrape_products(product_ids)
-                        .await
-                        .map_err(|e| e.to_string())
-                    {
-                        Ok(prices) => {
-                            for (pref, price) in preferences.iter().zip(prices) {
-                                // let decimal_price = Decimal::new(price as i64, 2);
-                                update_prices(
-                                    &db,
-                                    pref.product_id,
-                                    Decimal::from_str(&price).unwrap(),
-                                )
+                match scrape_products(product_ids)
+                    .await
+                    .map_err(|e| e.to_string())
+                {
+                    Ok(prices) => {
+                        for (pref, price) in preferences.iter().zip(prices) {
+                            // let decimal_price = Decimal::new(price as i64, 2);
+                            update_prices(&db, pref.product_id, Decimal::from_str(&price).unwrap())
                                 .await;
-                            }
                         }
-                        Err(e) => tracing::error!("Scraping error: {}", e),
                     }
+                    Err(e) => tracing::error!("Scraping error: {}", e),
                 }
-                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
             }
-        });
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+        }
     }
 }
 
