@@ -1,13 +1,12 @@
 use crate::scraper::myntra::scrape_products;
 use anyhow::Context;
 use entity::{notification_preferences, products};
-use sea_orm::ColumnTrait;
-use sea_orm::QueryFilter;
 use sea_orm::TransactionTrait;
 use sea_orm::{prelude::Decimal, sqlx::types::chrono::Utc, DatabaseConnection, EntityTrait, Set};
 use serenity::all::{
     CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue,
 };
+use std::str::FromStr;
 use tracing::error;
 pub async fn myntra_add(
     options: &[ResolvedOption<'_>],
@@ -68,13 +67,13 @@ pub async fn myntra_add(
             let product_model = products::ActiveModel {
                 product_id: Set(product_id),
                 current_price: Set(
-                    Decimal::try_from(product_price).context("Invalid product price")?
+                    Decimal::from_str(&product_price).context("Invalid product price")?
                 ),
                 highest_price: Set(
-                    Decimal::try_from(product_price).context("Invalid product price")?
+                    Decimal::from_str(&product_price).context("Invalid product price")?
                 ),
                 lowest_price: Set(
-                    Decimal::try_from(product_price).context("Invalid product price")?
+                    Decimal::from_str(&product_price).context("Invalid product price")?
                 ),
                 last_updated: Set(Utc::now().naive_utc()),
                 ..Default::default()

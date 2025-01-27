@@ -3,9 +3,7 @@ use rand::Rng;
 use scraper::{Html, Selector};
 use std::{ffi::OsStr, thread, time::Duration};
 
-
-
-pub async fn scrape_products(urls: Vec<i32>) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+pub async fn scrape_products(urls: Vec<i32>) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut prices = Vec::new();
     let options = LaunchOptionsBuilder::default()
         .args(vec![
@@ -22,7 +20,6 @@ pub async fn scrape_products(urls: Vec<i32>) -> Result<Vec<f32>, Box<dyn std::er
     let tab = browser.new_tab()?;
 
     for url in urls {
-
         let delay = rand::thread_rng().gen_range(2000..5000);
         thread::sleep(Duration::from_millis(delay));
 
@@ -88,11 +85,10 @@ pub async fn scrape_products(urls: Vec<i32>) -> Result<Vec<f32>, Box<dyn std::er
                         .replace("₹", "")
                         .replace(',', "")
                         .trim()
-                        .parse::<f32>()
-                        .unwrap_or(0.0),
+                        .to_string(),
                 )
             })
-            .unwrap_or(0.0);
+            .unwrap_or("0".to_string());
 
         prices.push(price);
     }
