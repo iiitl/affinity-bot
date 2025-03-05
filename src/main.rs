@@ -319,6 +319,18 @@ impl EventHandler for Bot {
                         error!("Cannot respond to myntra_add command: {why}");
                     }
                 }
+                "cargocut" => {
+                    // Handle URL shortening command
+
+                    let response =
+                        commands::cargocut::shorten::shorten(&command.data.options()).await;
+
+                    let message = CreateInteractionResponseMessage::new().content(response);
+                    let builder = CreateInteractionResponse::Message(message);
+                    if let Err(why) = command.create_response(&ctx.http, builder).await {
+                        error!("Cannot respond to myntra_add command: {why}");
+                    }
+                }
                 _ => {
                     utils::util::create_response(&ctx, &command, "not implemented :(".to_string())
                         .await
@@ -364,6 +376,7 @@ impl EventHandler for Bot {
                     commands::moderate::register_warn(),
                     commands::moderate::register_mute(),
                     commands::moderate::register_ban(),
+                    commands::cargocut::shorten::register_cut(),
                 ],
             )
             .await;

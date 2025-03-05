@@ -78,6 +78,7 @@ pub async fn scrape_products(urls: Vec<i32>) -> Result<Vec<String>, Box<dyn std:
             .next()
             .and_then(|el| {
                 let price_text = el.text().collect::<String>();
+                tracing::info!(" the prices text {price_text:?}");
                 Some(
                     price_text
                         .trim()
@@ -92,6 +93,7 @@ pub async fn scrape_products(urls: Vec<i32>) -> Result<Vec<String>, Box<dyn std:
 
         prices.push(price);
     }
+    tracing::info!(" the prices are {prices:?}");
 
     Ok(prices)
 }
