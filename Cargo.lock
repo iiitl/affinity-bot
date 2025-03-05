@@ -31,6 +31,7 @@ dependencies = [
  "migration",
  "once_cell",
  "rand",
+ "regex",
  "reqwest 0.12.12",
  "scraper",
  "sea-orm",

@@ -331,6 +331,24 @@ impl EventHandler for Bot {
                         error!("Cannot respond to myntra_add command: {why}");
                     }
                 }
+                "utubemp3" => {
+                    // Handle the YouTube MP3 download command
+                    if let Err(why) =
+                        commands::youtube::yt_dlp::download_mp3(&ctx, &command, &command.data.options())
+                            .await
+                    {
+                        error!("Error in utubeMP3 command: {why}");
+
+                        // Send error message if something goes wrong
+                        let error_message = CreateInteractionResponseMessage::new()
+                        .content("An error occurred while processing your request. Please try again later.");
+                        let error_response = CreateInteractionResponse::Message(error_message);
+
+                        if let Err(e) = command.create_response(&ctx.http, error_response).await {
+                            error!("Cannot send error response for utubeMP3 command: {e}");
+                        }
+                    }
+                }
                 _ => {
                     utils::util::create_response(&ctx, &command, "not implemented :(".to_string())
                         .await
@@ -365,7 +383,7 @@ impl EventHandler for Bot {
                 .expect("Failed to parse GUILD_TOKEN"),
         );
 
-        let _commands = guild_id
+        let commands = guild_id
             .set_commands(
                 &ctx.http,
                 vec![
@@ -377,10 +395,11 @@ impl EventHandler for Bot {
                     commands::moderate::register_mute(),
                     commands::moderate::register_ban(),
                     commands::cargocut::shorten::register_cut(),
+                    commands::youtube::yt_dlp::register_youtube(),
                 ],
             )
             .await;
-        // println!("I now have the following guild slash commands: {commands:#?}");
+        println!("I now have the following guild slash commands: {commands:#?}");
         let _ = Command::create_global_command(&ctx.http, commands::wonderful_command::register())
             .await;
     }
