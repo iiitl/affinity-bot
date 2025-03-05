@@ -6,6 +6,7 @@ Affinity Bot is a powerful and customizable Discord bot designed for seamless in
 ## **Features** ✨
 - 🔧 **Moderation Tools**: Manage your server with commands like kick, ban, mute, and more.
 - 📚 **Utility Commands**: Fetch information, set reminders, and more!
+- 🔗 **URL Shortener**: Create custom shortened URLs with the [CargoСut](https://github.com/Sidharth-Singh10/CargoCut) feature.
 - ⚡ **High Performance**: Rust-based backend ensures speed, reliability, and memory safety.
 - 🚀 **Serverless Deployment**: Leveraging Shuttle for efficient and scalable hosting.
 ---
