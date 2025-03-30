@@ -349,6 +349,10 @@ impl EventHandler for Bot {
                         }
                     }
                 }
+                "poll" => {
+                    let response = commands::vote::run(&ctx, &command).await;
+                    utils::util::create_response(&ctx, &command, response).await;
+                }
                 _ => {
                     utils::util::create_response(&ctx, &command, "not implemented :(".to_string())
                         .await
@@ -396,6 +400,7 @@ impl EventHandler for Bot {
                     commands::moderate::register_ban(),
                     commands::cargocut::shorten::register_cut(),
                     commands::youtube::yt_dlp::register_youtube(),
+                    commands::vote::register(),
                 ],
             )
             .await;
