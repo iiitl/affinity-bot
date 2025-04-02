@@ -94,18 +94,24 @@ impl EventHandler for Bot {
             if let Err(e) = msg.delete(&ctx.http).await {
                 error!("Failed to delete spam message: {:?}", e);
             }
-
-            // Unused Result (Scope of Improvement)
-            let _ = self.violations_tracker.increment_violations(msg.author.id);
+        
+            // Handle the Result of increment_violations properly
+            if let Err(e) = self.violations_tracker.increment_violations(msg.author.id) {
+                error!("Failed to increment violations for {}: {:?}", msg.author.id, e);
+            }
+        
             let action = self
                 .violations_tracker
                 .get_appropriate_action(msg.author.id, &self.violation_threshold);
-
-            // Unused Result (Scope of Improvement)
-            let _ = punish_member(&ctx, &msg, action, &self.violations_tracker).await;
-
+        
+            // Handle the Result of punish_member properly
+            if let Err(e) = punish_member(&ctx, &msg, action, &self.violations_tracker).await {
+                error!("Failed to punish member {}: {:?}", msg.author.id, e);
+            }
+        
             return;
         }
+        
 
         if msg.content == "!hello" {
             if let Err(e) = msg.channel_id.say(&ctx.http, "world!").await {
