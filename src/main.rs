@@ -95,7 +95,7 @@ impl EventHandler for Bot {
                 error!("Failed to delete spam message: {:?}", e);
             }
         
-            // Handle the Result of increment_violations properly
+            
             if let Err(e) = self.violations_tracker.increment_violations(msg.author.id) {
                 error!("Failed to increment violations for {}: {:?}", msg.author.id, e);
             }
@@ -104,7 +104,7 @@ impl EventHandler for Bot {
                 .violations_tracker
                 .get_appropriate_action(msg.author.id, &self.violation_threshold);
         
-            // Handle the Result of punish_member properly
+            
             if let Err(e) = punish_member(&ctx, &msg, action, &self.violations_tracker).await {
                 error!("Failed to punish member {}: {:?}", msg.author.id, e);
             }
